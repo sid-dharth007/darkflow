@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DarkFlow Pro | Advanced PDF Tools</title>
+
+<!-- Fonts & Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- PDF Libraries -->
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+.ad-container{
+margin:20px 0;
+text-align:center;
+}
+
+.ad-sidebar{
+position:sticky;
+top:20px;
+}
+
+.layout{
+display:grid;
+grid-template-columns: 1fr 300px;
+gap:20px;
+}
+
+@media(max-width:900px){
+.layout{
+grid-template-columns:1fr;
+}
+.ad-sidebar{
+display:none;
+}
+}
+
+:root{
+--bg:#0b0b0f;
+--card:#16161c;
+--accent:#8b5cf6;
+--text:#fff;
+--muted:#9ca3af;
+--border:#262626;
+}
+
+body{
+margin:0;
+font-family:Inter,system-ui;
+background:var(--bg);
+color:var(--text);
+}
+
+.container{max-width:1200px;margin:auto;padding:20px;}
+
+header{
+display:flex;
+justify-content:space-between;
+border-bottom:1px solid var(--border);
+padding-bottom:15px;
+margin-bottom:30px;
+}
+
+.logo{
+font-size:24px;
+font-weight:700;
+background:linear-gradient(45deg,#fff,#8b5cf6);
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+}
+
+.hero{text-align:center;margin-bottom:40px;}
+.hero h1{margin:0;font-size:32px;}
+.hero p{color:var(--muted);}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:20px;
+}
+
+.card{
+background:var(--card);
+border:1px solid var(--border);
+padding:25px;
+border-radius:12px;
+text-align:center;
+cursor:pointer;
+transition:0.3s;
+}
+
+.card:hover{
+transform:translateY(-5px);
+border-color:var(--accent);
+}
+
+.card i{font-size:30px;color:var(--accent);margin-bottom:10px;}
+
+#workspace{display:none;margin-top:30px;}
+
+.drop{
+border:2px dashed var(--border);
+padding:40px;
+text-align:center;
+border-radius:12px;
+cursor:pointer;
+}
+
+input[type=file]{display:none;}
+
+button{
+background:var(--accent);
+border:none;
+color:#fff;
+padding:12px 20px;
+margin-top:15px;
+border-radius:8px;
+cursor:pointer;
+font-weight:600;
+}
+
+button:disabled{background:#444;}
+
+.result{margin-top:20px;display:none;}
+
+.range-box{
+margin-top:15px;
+display:none;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header>
+<div class="logo">DarkFlow Pro</div>
+</header>
+
+<div id="main">
+
+<div class="hero">
+<h1>All-in-One PDF Toolkit</h1>
+<p>Secure • Client-side • No upload to server</p>
+</div>
+
+<div class="grid">
+
+<div class="card" onclick="openTool('merge')">
+<i class="fa fa-object-group"></i>
+<h3>Merge PDF</h3>
+</div>
+
+<div class="card" onclick="openTool('split')">
+<i class="fa fa-scissors"></i>
+<h3>Split PDF</h3>
+</div>
+
+<div class="card" onclick="openTool('img2pdf')">
+<i class="fa fa-file-image"></i>
+<h3>Image to PDF</h3>
+</div>
+
+<div class="card" onclick="openTool('pdf2img')">
+<i class="fa fa-file-export"></i>
+<h3>PDF to Images</h3>
+</div>
+
+<div class="card" onclick="openTool('info')">
+<i class="fa fa-circle-info"></i>
+<h3>File Info</h3>
+</div>
+
+</div>
+</div>
+
+<div id="workspace">
+<h2 id="toolTitle"></h2>
+<button onclick="back()">Back</button>
+
+<div class="drop" id="drop">
+Click or Drop Files
+<input type="file" id="fileInput" multiple>
+</div>
+
+<div class="range-box" id="rangeBox">
+Page range (example: 1-3)
+<input id="rangeInput" placeholder="1-3">
+</div>
+
+<button id="processBtn" disabled>Process</button>
+
+<div id="fileInfo"></div>
+
+<div class="result" id="result">
+<a id="download" download>Download</a>
+</div>
+
+</div>
+</div>
+
+<script>
+const { PDFDocument } = PDFLib;
+let tool="";
+let files=[];
+
+function openTool(t){
+tool=t;
+document.getElementById("main").style.display="none";
+document.getElementById("workspace").style.display="block";
+document.getElementById("toolTitle").innerText=t.toUpperCase();
+
+document.getElementById("rangeBox").style.display =
+(t==="split") ? "block" : "none";
+}
+
+function back(){
+files=[];
+document.getElementById("workspace").style.display="none";
+document.getElementById("main").style.display="block";
+document.getElementById("result").style.display="none";
+document.getElementById("processBtn").disabled=true;
+}
+
+const drop=document.getElementById("drop");
+const input=document.getElementById("fileInput");
+
+drop.onclick=()=>input.click();
+
+input.onchange=e=>{
+files=[...e.target.files];
+document.getElementById("processBtn").disabled=false;
+showInfo();
+};
+
+drop.ondrop=e=>{
+e.preventDefault();
+files=[...e.dataTransfer.files];
+document.getElementById("processBtn").disabled=false;
+showInfo();
+};
+
+drop.ondragover=e=>e.preventDefault();
+
+function showInfo(){
+let html="";
+files.forEach(f=>{
+html+=f.name+" - "+(f.size/1024).toFixed(1)+" KB<br>";
+});
+document.getElementById("fileInfo").innerHTML=html;
+}
+
+document.getElementById("processBtn").onclick=async()=>{
+if(tool==="merge") mergePDF();
+if(tool==="split") splitPDF();
+if(tool==="img2pdf") imagesToPDF();
+if(tool==="pdf2img") pdfToImages();
+if(tool==="info") showInfo();
+};
+
+// Merge
+async function mergePDF(){
+const merged=await PDFDocument.create();
+for(const f of files){
+const bytes=await f.arrayBuffer();
+const pdf=await PDFDocument.load(bytes);
+const pages=await merged.copyPages(pdf,pdf.getPageIndices());
+pages.forEach(p=>merged.addPage(p));
+}
+download(await merged.save(),"merged.pdf");
+}
+
+// Split
+async function splitPDF(){
+const range=document.getElementById("rangeInput").value;
+const [start,end]=range.split("-").map(n=>parseInt(n)-1);
+
+const bytes=await files[0].arrayBuffer();
+const pdf=await PDFDocument.load(bytes);
+const newPdf=await PDFDocument.create();
+
+const pages=await newPdf.copyPages(pdf,[...Array(end-start+1).keys()].map(i=>i+start));
+pages.forEach(p=>newPdf.addPage(p));
+
+download(await newPdf.save(),"split.pdf");
+}
+
+// Images to PDF
+async function imagesToPDF(){
+const pdf=await PDFDocument.create();
+for(const f of files){
+const bytes=await f.arrayBuffer();
+let img;
+if(f.type.includes("png")) img=await pdf.embedPng(bytes);
+else img=await pdf.embedJpg(bytes);
+
+const page=pdf.addPage([img.width,img.height]);
+page.drawImage(img,{x:0,y:0,width:img.width,height:img.height});
+}
+download(await pdf.save(),"images.pdf");
+}
+
+// PDF to Images
+async function pdfToImages(){
+const file=files[0];
+const url=URL.createObjectURL(file);
+
+const pdf=await pdfjsLib.getDocument(url).promise;
+
+for(let i=1;i<=pdf.numPages;i++){
+const page=await pdf.getPage(i);
+const viewport=page.getViewport({scale:2});
+const canvas=document.createElement("canvas");
+const ctx=canvas.getContext("2d");
+canvas.width=viewport.width;
+canvas.height=viewport.height;
+await page.render({canvasContext:ctx,viewport}).promise;
+
+canvas.toBlob(blob=>{
+download(blob,"page"+i+".png");
+});
+}
+}
+
+// Download helper
+function download(data,name){
+const blob=new Blob([data]);
+const url=URL.createObjectURL(blob);
+const link=document.getElementById("download");
+link.href=url;
+link.download=name;
+document.getElementById("result").style.display="block";
+}
+</script>
+<div class="ad-container">
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-XXXXXXXXXXXX"
+     data-ad-slot="4444444444"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+</div>
+
+<script>
+document.querySelectorAll('.adsbygoogle').forEach(() => {
+    (adsbygoogle = window.adsbygoogle || []).push({});
+});
+</script>
+
+</body>
+</html>
